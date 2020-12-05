@@ -40,3 +40,159 @@ Collect and Visualize your IoT data in minutes by following this [guide](https:/
 ## Licenses
 
 This project is released under [Apache 2.0 License](./LICENSE).
+
+Thingsboard on Ubuntu server 18.04
+//+------------------------------------------------------------------+
+//| Thingsboard on Ubuntu server 18.04: 
+//+------------------------------------------------------------------+
+# user per
+# pass 1234
+# Using postgres sql server, that will run on 1Hb ram.
+# https://thingsboard.io/docs/user-guide/install/linux/#hardware-requirements
+
+
+//+------------------------------------------------------------------+
+//| install Java jdk 8 
+//+------------------------------------------------------------------+	
+# install java jdk 8
+sudo add-apt-repository ppa:webupd8team/java
+sudo apt-get update
+sudo apt-get install oracle-java8-installer
+
+//+------------------------------------------------------------------+
+//| install postgres database
+//+------------------------------------------------------------------+
+# install SQL Database: PostgreSQL
+sudo apt-get install postgresql postgresql-contrib
+sudo service postgresql start
+# setup postgres user on ubuntu:
+sudo -u postgres -i
+# connect db with postgres user:
+psql postgres
+# set postgres pasword 1234:
+\password
+# list database
+\l
+# list roles
+\du
+# create db
+CREATE DATABASE thingsboard;
+# set privileges
+GRANT ALL PRIVILEGES ON DATABASE thingsboard TO postgres; postgres=> \list
+# quit
+\q
+# go back to your linux user:
+su per
+# goto home directory:
+cd
+
+//+------------------------------------------------------------------+
+//| install thingsboard
+//+------------------------------------------------------------------+
+# get thingsboard
+wget https://github.com/thingsboard/thingsboard/releases/download/v2.3/thingsboard-2.3.deb
+# install
+sudo dpkg -i thingsboard-2.3.deb
+
+//+------------------------------------------------------------------+
+//| Restrict memory usage
+//+------------------------------------------------------------------+
+# Restrict ThingsBoard memory usage on 1GB machines to 256MB:
+sudo nano /etc/thingsboard/conf/thingsboard.conf
+# Add next line to bottom of thingsboard.conf:
+export JAVA_OPTS="$JAVA_OPTS -Xms256M -Xmx256M"
+
+//+------------------------------------------------------------------+
+//| Setup database
+//+------------------------------------------------------------------+
+# comment HSQLDB DAO Configuration in thingsboard.yml
+sudo nano /etc/thingsboard/conf/thingsboard.yml
+
+# HSQLDB DAO Configuration
+#spring:
+#  data:
+#    jpa:
+#      repositories:
+#        enabled: "true"
+#  jpa:
+#    hibernate:
+#      ddl-auto: "validate"
+#    database-platform: "org.hibernate.dialect.HSQLDialect"
+#  datasource:
+#    driverClassName: "${SPRING_DRIVER_CLASS_NAME:org.hsqldb.jdbc.JDBCDriver}"
+#    url: "${SPRING_DATASOURCE_URL:jdbc:hsqldb:file:${SQL_DATA_FOLDER:/tmp}/thingsboardDb;sql.enforce_size=false}"
+#    username: "${SPRING_DATASOURCE_USERNAME:sa}"
+#    password: "${SPRING_DATASOURCE_PASSWORD:}"
+
+
+# uncomment posgresql and set password in thingsboard.yml
+# PostgreSQL DAO Configuration
+spring:
+  data:
+    jpa:
+      repositories:
+        enabled: "true"
+  jpa:
+    hibernate:
+      ddl-auto: "validate"
+    database-platform: "org.hibernate.dialect.PostgreSQLDialect"
+  datasource:
+    driverClassName: "${SPRING_DRIVER_CLASS_NAME:org.postgresql.Driver}"
+    url: "${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/thingsboard}"
+    username: "${SPRING_DATASOURCE_USERNAME:postgres}"
+    password: "${SPRING_DATASOURCE_PASSWORD:1234}"
+
+//+------------------------------------------------------------------+
+//| Change ports
+//+------------------------------------------------------------------+
+# Thingsboard use many webservice ports. Ex 8080 and 1883. 
+Check that no webserver is already using these ports to avoid conflict:
+sudo netstat -plunt
+# If ports are in use, you need to edit thingsboard.yml, and change port number.
+# Port 8080 is HTTP_BIND_PORT.
+# Port 1883 is MQTT_BIND_PORT.
+sudo nano /etc/thingsboard/conf/thingsboard.yml
+# search with Ctrl+w.
+
+	
+//+------------------------------------------------------------------+
+//| Service
+//+------------------------------------------------------------------+	
+# install service
+sudo /usr/share/thingsboard/bin/install/install.sh
+# start
+sudo service thingsboard start
+
+//+------------------------------------------------------------------+
+//| Troubleshooting
+//+------------------------------------------------------------------+
+# see error logg
+cat /var/log/thingsboard/thingsboard.log | grep ERROR
+# or 
+cat /var/log/thingsboard/thingsboard.log
+# If you see "Address / Port already in use", there is a Port 
+conflict with other service.
+
+//+------------------------------------------------------------------+
+//| Web ui
+//+------------------------------------------------------------------+
+# http://192.168.70.136:8080
+# user sysadmin@thingsboard.org
+# pass sysadmin
+
+# lag tenant (kunde/lokasjon/fabrikk)
+# lag user under tenant.(lite ikon på tenant)
+# logg på med ny bruker, for å bruke thingsbard.
+
+
+//+------------------------------------------------------------------+
+//| cloud init
+//+------------------------------------------------------------------+
+# How to remove cloud init from ubuntu
+# If you're trying to start a cloud-init based Ubuntu VM with KVM you will suffer long boot # # times and confusing output on the terminal. If you want to get rid of it you need to remove # cloud-init.
+#   wait until the VM boots
+#   login
+echo 'datasource_list: [ None ]' | sudo -s tee /etc/cloud/cloud.cfg.d/90_dpkg.cfg
+sudo apt-get purge cloud-init
+sudo rm -rf /etc/cloud/; sudo rm -rf /var/lib/cloud/
+sudo reboot
